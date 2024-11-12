@@ -1,5 +1,7 @@
 fastapi
 uvicorn
 psycopg2-binary
+sqlalchemy
 simplejson
 matplotlib
+pandas

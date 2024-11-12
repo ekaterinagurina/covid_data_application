@@ -1,14 +1,44 @@
 services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: covid_database
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - covid_network
+
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+    depends_on:
+      - db
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: covid_database
+      DB_USER: postgres
+      DB_PASSWORD: password
+    networks:
+      - covid_network
     ports:
       - "8000:8000"
-    env_file:
-      - .env
 
   frontend:
-    build: ./frontend
-    ports:
-      - "8080:8080"
+    build:
+      context: ./frontend
     depends_on:
       - backend
+    networks:
+      - covid_network
+    ports:
+      - "8080:80"
+
+networks:
+  covid_network:
+
+volumes:
+  db_data:
