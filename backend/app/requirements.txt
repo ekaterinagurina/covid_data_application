@@ -5,3 +5,5 @@ sqlalchemy
 simplejson
 matplotlib
 pandas
+pydantic-settings
+redis==5.0.0

@@ -1,5 +1,6 @@
 import pandas as pd
 from sqlalchemy import create_engine, text
+from utils import track_time
 
 user = "postgres"
 password = "password"
@@ -7,6 +8,7 @@ host = "db"
 port = "5432"
 db_name = "covid_database"
 
+@track_time
 def create_tables(engine):
     table_creation_queries = [
         """
