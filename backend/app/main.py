@@ -1,14 +1,15 @@
-from fastapi import FastAPI, HTTPException, Query, Response, status
-from fastapi.middleware.cors import CORSMiddleware
-import matplotlib.pyplot as plt
 import io
 import json
 from typing import Optional
-from db_connect import query_db
+import matplotlib.pyplot as plt
+from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from cache import cache_get, cache_set, get_cache_key
-from utils import clean_data
-from errors import ErrorCode
 from config import logger
+from db_connect import setup_database, query_db
+from errors import ErrorCode
+from utils import clean_data, CustomJSONEncoder
 
 app = FastAPI()
 
@@ -19,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+setup_database()
 
 ALLOWED_TABLES = [
     "country_wise_latest", "covid_19_clean_complete", "day_wise",
@@ -36,10 +39,11 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
     cached_data = cache_get(cache_key)
     if cached_data:
         logger.info(f"Cache hit for table: {table_name}, country: {country}")
-        return json.loads(cached_data.decode("utf-8"))
+        return JSONResponse(content=json.loads(cached_data.decode("utf-8")))
 
     logger.info(f"Cache miss for table: {table_name}, country: {country}")
-    query = f"SELECT * FROM public.{table_name} WHERE country_region ILIKE %s LIMIT 100;" if country else f"SELECT * FROM public.{table_name} LIMIT 100;"
+    query = f"SELECT * FROM public.{table_name} WHERE country_region ILIKE %s LIMIT 100;" \
+        if country else f"SELECT * FROM public.{table_name} LIMIT 100;"
     params = (country,) if country else None
 
     data = query_db(query, params)
@@ -47,8 +51,8 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
         ErrorCode.NOT_FOUND.raise_exception()
 
     cleaned_data = clean_data(data)
-    cache_set(cache_key, json.dumps(cleaned_data))
-    return cleaned_data
+    cache_set(cache_key, json.dumps(cleaned_data, cls=CustomJSONEncoder))
+    return JSONResponse(content=cleaned_data)
 
 
 @app.get("/plot/{table_name}/{column_name}")
@@ -66,12 +70,15 @@ def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(
         return Response(content=cached_plot, media_type="image/png")
 
     logger.info(f"Cache miss for plot: {table_name}, column: {column_name}, country: {country}")
-    query = f"SELECT date, {column_name} FROM public.{table_name} WHERE country_region ILIKE %s ORDER BY date LIMIT 100;" if country else f"SELECT date, {column_name} FROM public.{table_name} ORDER BY date LIMIT 100;"
+    query = f"SELECT date, {column_name} FROM public.{table_name} WHERE country_region ILIKE %s ORDER BY date LIMIT 100;" \
+        if country else f"SELECT date, {column_name} FROM public.{table_name} ORDER BY date LIMIT 100;"
     params = (country,) if country else None
 
     data = query_db(query, params)
     if not data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No data available for plotting")
+
+    data = clean_data(data)
 
     dates = [row["date"] for row in data]
     values = [row[column_name] for row in data]
