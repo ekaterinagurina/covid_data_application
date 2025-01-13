@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from cache import cache_get, cache_set, get_cache_key
-from config import logger
+from config import logger, settings
 from db_connect import setup_database, query_db
 from errors import ErrorCode
 from utils import clean_data, CustomJSONEncoder
@@ -15,7 +15,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],
+    allow_origins=settings.ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
