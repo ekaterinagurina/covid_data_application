@@ -1,4 +1,4 @@
-fastapi
+fastapi[all]
 uvicorn
 psycopg2-binary
 sqlalchemy
@@ -7,3 +7,6 @@ matplotlib
 pandas
 pydantic-settings
 redis==5.0.0
+passlib[bcrypt]
+pyjwt
+python-dotenv

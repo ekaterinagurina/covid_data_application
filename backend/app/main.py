@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from auth import auth_router
 from cache import cache_get, cache_set, get_cache_key
 from config import logger, settings
 from db_connect import setup_database, query_db
@@ -22,6 +23,8 @@ app.add_middleware(
 )
 
 setup_database()
+
+app.include_router(auth_router)
 
 ALLOWED_TABLES = [
     "country_wise_latest", "covid_19_clean_complete", "day_wise",
