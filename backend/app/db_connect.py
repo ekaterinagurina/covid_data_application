@@ -3,11 +3,20 @@ from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from fastapi import HTTPException, status
-from config import settings, logger
+from config import logger
+from settings import Settings
 from models import Base
 from database import load_data
 
-DATABASE_URI = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+settings = Settings()
+
+DATABASE_URI = (
+    f"postgresql://{settings.database.DB_USER}:"
+    f"{settings.database.DB_PASSWORD}@"
+    f"{settings.database.DB_HOST}:"
+    f"{settings.database.DB_PORT}/"
+    f"{settings.database.DB_NAME}"
+)
 engine = create_engine(DATABASE_URI)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -15,11 +24,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def get_db_connection():
     try:
         return psycopg2.connect(
-            host=settings.DB_HOST,
-            port=settings.DB_PORT,
-            database=settings.DB_NAME,
-            user=settings.DB_USER,
-            password=settings.DB_PASSWORD,
+            host=settings.database.DB_HOST,
+            port=settings.database.DB_PORT,
+            database=settings.database.DB_NAME,
+            user=settings.database.DB_USER,
+            password=settings.database.DB_PASSWORD,
             cursor_factory=RealDictCursor
         )
     except Exception as e:

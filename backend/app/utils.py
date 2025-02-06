@@ -1,12 +1,11 @@
 import time
-import logging
 from functools import wraps
-import numpy as np
-import pandas as pd
+from numpy import isinf
+from pandas import isna
 import json
 from datetime import datetime, date
+from config import logger
 
-logger = logging.getLogger("performance")
 
 def track_time(func):
     @wraps(func)
@@ -20,19 +19,28 @@ def track_time(func):
 
     return wrapper
 
+
 def clean_data(data):
-    cleaned_data = []
-    for row in data:
-        cleaned_row = {
-            k: (v.isoformat() if isinstance(v, (datetime, date)) else
-                None if isinstance(v, (float, int)) and (pd.isna(v) or np.isinf(v)) else v)
+    return [
+        {
+            k: (
+                serialize_date(v) if isinstance(v, (datetime, date)) else
+                None if isinstance(v, (float, int)) and (isna(v) or isinf(v)) else v
+            )
             for k, v in row.items()
         }
-        cleaned_data.append(cleaned_row)
-    return cleaned_data
+        for row in data
+    ]
+
+def serialize_date(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return value
+
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
+        serialized_obj = serialize_date(obj)
+        if serialized_obj is not obj:
+            return serialized_obj
         return super().default(obj)
