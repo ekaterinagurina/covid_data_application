@@ -1,12 +1,10 @@
 import redis
 import logging
-from settings import Settings
-
-settings = Settings()
+from settings import redis_settings
 
 redis_client = redis.StrictRedis(
-    host="redis",
-    port=6379,
+    host=redis_settings.REDIS_HOST,
+    port=redis_settings.REDIS_PORT,
     db=0,
     decode_responses=False
 )

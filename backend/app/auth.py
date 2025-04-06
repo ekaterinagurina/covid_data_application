@@ -1,18 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import exists
+
 from db_connect import SessionLocal
 from models import User
-from pydantic import BaseModel, EmailStr
+from settings import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-SECRET_KEY = "secret_key"
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -27,17 +30,14 @@ def get_db():
         db.close()
 
 
-# Hash password
 def hash_password(password: str):
     return pwd_context.hash(password)
 
 
-# Verify password
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-# Generate JWT Token
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -55,7 +55,7 @@ class UserRegister(BaseModel):
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(user: UserRegister, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter((User.username == user.username) | (User.email == user.email)).first()
+    existing_user = db.query(exists().where((User.username == user.username) | (User.email == user.email))).scalar()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
 
@@ -79,7 +79,6 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# Get Current User
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from auth import auth_router
 from cache import cache_get, cache_set, get_cache_key
-from config import logger, settings
+from config import logger
 from db_connect import setup_database, query_db
 from errors import ErrorCode
+from settings import settings
 from utils import clean_data, CustomJSONEncoder
 
 app = FastAPI()
