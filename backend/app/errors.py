@@ -6,15 +6,16 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 class ErrorCode(Enum):
-    GENERIC_ERROR = (1, "A generic error occurred")
-    DATABASE_ERROR = (2, "A database error occurred")
-    INVALID_INPUT = (3, "Invalid input provided")
+    GENERIC_ERROR = (1000, "A generic error occurred")
+    DATABASE_ERROR = (1001, "A database error occurred")
+    INVALID_INPUT = (1002, "Invalid input provided")
     NOT_FOUND = (404, "Data not found")
-    UNAUTHORIZED = (401, "Unauthorized access")
+    UNAUTHORIZED = (401, "Invalid credentials")
     FORBIDDEN = (403, "Access forbidden")
     SERVER_ERROR = (500, "Internal server error")
+    REDIS_ERROR = (1003, "Redis connection error")
 
-    def __init__(self, code, message):
+    def __init__(self, code: int, message: str):
         self._code = code
         self._message = message
 
@@ -29,11 +30,6 @@ class ErrorCode(Enum):
     def raise_exception(self):
         logger.error(f"Exception raised: {self.code} - {self.message}")
         raise HTTPException(
-            status_code=self.code if self.code != 500 else status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=self.message,
+            status_code=self.code if 400 <= self.code <= 599 else 500,  # keep it valid HTTP
+            detail={"error_code": self.code, "error_message": self.message}
         )
-
-def fetch_example_data(data):
-    if not data:
-        ErrorCode.NOT_FOUND.raise_exception()
-    return data

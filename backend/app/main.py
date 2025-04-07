@@ -92,10 +92,10 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
 @app.get("/plot/{table_name}/{column_name}")
 def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(None, description="Filter by country")):
     if table_name not in ALLOWED_TABLES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid table name")
+        ErrorCode.INVALID_INPUT.raise_exception()
 
     if column_name not in PLOT_COLUMNS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid column name for plotting")
+        ErrorCode.INVALID_INPUT.raise_exception()
 
     cache_key = get_cache_key(table_name, column_name, country or "all", "plot")
     cached_plot = cache_get(cache_key)
