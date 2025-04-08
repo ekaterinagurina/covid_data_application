@@ -19,28 +19,22 @@ def track_time(func):
 
     return wrapper
 
+def serialize_value(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, (float, int)) and (isna(value) or isinf(value)):
+        return None
+    return value
 
 def clean_data(data):
     return [
-        {
-            k: (
-                serialize_date(v) if isinstance(v, (datetime, date)) else
-                None if isinstance(v, (float, int)) and (isna(v) or isinf(v)) else v
-            )
-            for k, v in row.items()
-        }
+        {k: serialize_value(v) for k, v in row.items()}
         for row in data
     ]
 
-def serialize_date(value):
-    if isinstance(value, (datetime, date)):
-        return value.isoformat()
-    return value
-
-
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
-        serialized_obj = serialize_date(obj)
+        serialized_obj = serialize_value(obj)
         if serialized_obj is not obj:
             return serialized_obj
         return super().default(obj)
