@@ -17,6 +17,15 @@ class DatabaseSettings(ConfiguredBaseSettings):
     DB_USER: str = Field(..., description="Database username")
     DB_PASSWORD: str = Field(..., description="Database password")
 
+    @property
+    def uri(self):
+        return (
+            f"postgresql://{self.DB_USER}:"
+            f"{self.DB_PASSWORD}@"
+            f"{self.DB_HOST}:"
+            f"{self.DB_PORT}/"
+            f"{self.DB_NAME}"
+        )
 
 class RedisSettings(ConfiguredBaseSettings):
     REDIS_HOST: str = Field(..., description="Redis host address")

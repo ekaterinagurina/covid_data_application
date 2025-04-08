@@ -4,10 +4,9 @@ from models import Base
 from sqlalchemy.orm import Session
 import pandas as pd
 from models import CountryWiseLatest, WorldometerData, Covid19CleanComplete, FullGrouped, DayWise, USACountyWise
+from settings import database_settings
 
-DATABASE_URI = "postgresql://postgres:password@db:5432/covid_database"
-
-engine = create_engine(DATABASE_URI)
+engine = create_engine(database_settings.uri)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():

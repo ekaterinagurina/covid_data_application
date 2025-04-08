@@ -9,14 +9,7 @@ from models import Base
 from database import load_data
 
 
-DATABASE_URI = (
-    f"postgresql://{database_settings.DB_USER}:"
-    f"{database_settings.DB_PASSWORD}@"
-    f"{database_settings.DB_HOST}:"
-    f"{database_settings.DB_PORT}/"
-    f"{database_settings.DB_NAME}"
-)
-engine = create_engine(DATABASE_URI)
+engine = create_engine(database_settings.uri)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
