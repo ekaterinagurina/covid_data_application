@@ -1,10 +1,15 @@
 import io
 import json
+
 from typing import Optional
+
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 from auth import auth_router
 from cache import cache_get, cache_set, get_cache_key
 from config import logger
@@ -28,22 +33,48 @@ setup_database()
 app.include_router(auth_router)
 
 ALLOWED_TABLES = [
-    "country_wise_latest", "covid_19_clean_complete", "day_wise",
-    "full_grouped", "usa_county_wise", "worldometer_data"
+    "coronavirus_2020", "coronavirus_2021", "coronavirus_2022", "coronavirus_2023",
+    "coronavirus_daily", "covid19_vaccine", "world_population"
 ]
-PLOT_COLUMNS = ["confirmed", "deaths", "recovered", "active"]
+
+PLOT_COLUMNS = ["cases", "doses_admin", "people_at_least_one_dose", "population"]
 
 
 def build_query(table_name: str, column_name: Optional[str] = None, country: Optional[str] = None):
+    is_corona_table = table_name.startswith("coronavirus_")
+
     if column_name:
-        query = f"SELECT date, {column_name} FROM public.{table_name} "
+        if is_corona_table:
+            query = f"SELECT date, SUM({column_name}) as {column_name} FROM public.{table_name} "
+        else:
+            query = f"SELECT date, {column_name} FROM public.{table_name} "
     else:
         query = f"SELECT * FROM public.{table_name} "
 
     if country:
-        query += "WHERE country_region ILIKE %s "
-    query += "ORDER BY date LIMIT 100;" if column_name else "LIMIT 100;"
-    params = (country,) if country else None
+        if is_corona_table:
+            query += "WHERE country ILIKE %s "
+            params = (country,)
+        elif table_name == "covid19_vaccine":
+            query += "WHERE country_region ILIKE %s "
+            params = (country,)
+        elif table_name == "world_population":
+            query += "WHERE country_name ILIKE %s "
+            params = (country,)
+        else:
+            params = None
+    else:
+        params = None
+
+    if column_name:
+        if is_corona_table:
+            query += "GROUP BY date ORDER BY date "
+        else:
+            query += "ORDER BY date "
+        query += "LIMIT 100;"
+    else:
+        query += "LIMIT 100;"
+
     return query, params
 
 
@@ -64,13 +95,28 @@ def fetch_and_cache_data(cache_key: str, query: str, params: Optional[tuple]):
 
 
 def generate_plot(dates, values, column_name):
-    plt.figure(figsize=(10, 6))
-    plt.bar(dates, values)
+    parsed_dates = []
+    for d in dates:
+        try:
+            parsed_dates.append(pd.to_datetime(d))
+        except Exception:
+            continue
+
+    if not parsed_dates:
+        raise ValueError("No valid date values for plotting")
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(parsed_dates, values[:len(parsed_dates)], marker='o', linestyle='-', linewidth=2)
+
     plt.xlabel("Date")
-    plt.ylabel(column_name.capitalize())
-    plt.title(f"{column_name.capitalize()} over Time")
+    plt.ylabel(column_name.replace("_", " ").title())
+    plt.title(f"{column_name.replace('_', ' ').title()} Over Time")
     plt.xticks(rotation=45)
     plt.tight_layout()
+
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 
     buf = io.BytesIO()
     plt.savefig(buf, format="png")
@@ -91,10 +137,7 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
 
 @app.get("/plot/{table_name}/{column_name}")
 def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(None, description="Filter by country")):
-    if table_name not in ALLOWED_TABLES:
-        ErrorCode.INVALID_INPUT.raise_exception()
-
-    if column_name not in PLOT_COLUMNS:
+    if table_name not in ALLOWED_TABLES or column_name not in PLOT_COLUMNS:
         ErrorCode.INVALID_INPUT.raise_exception()
 
     cache_key = get_cache_key(table_name, column_name, country or "all", "plot")
@@ -106,8 +149,9 @@ def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(
     logger.info(f"Cache miss for plot: {cache_key}")
     query, params = build_query(table_name, column_name, country)
     data = fetch_and_cache_data(cache_key, query, params)
-    dates = [row["date"] for row in data]
-    values = [row[column_name] for row in data]
+
+    dates = [row["date"] for row in data if row.get("date") and row.get(column_name) is not None]
+    values = [row[column_name] for row in data if row.get("date") and row.get(column_name) is not None]
 
     plot_image = generate_plot(dates, values, column_name)
     cache_set(cache_key, plot_image)

@@ -11,7 +11,6 @@
       <p>Logged in as: {{ user.username }} ({{ user.email }})</p>
       <button @click="logout">Logout</button>
 
-      <!-- Fetch and display COVID data -->
       <h2>COVID Data</h2>
       <select v-model="selectedTable" @change="fetchTableData">
         <option disabled value="">Select a table</option>
@@ -58,14 +57,17 @@ export default {
     return {
       user: null,
       tables: [
-        "country_wise_latest",
-        "covid_19_clean_complete",
-        "day_wise",
-        "full_grouped",
-        "usa_county_wise",
-        "worldometer_data"
+        "coronavirus_daily",
+        "coronavirus_2020",
+        "coronavirus_2021",
+        "coronavirus_2022",
+        "coronavirus_2023",
+        "covid19_vaccine",
+        "world_population"
       ],
-      plotColumns: ["confirmed", "deaths", "recovered", "active"],
+      plotColumns: [
+        "cases",
+      ],
       selectedTable: "",
       selectedCountry: "",
       selectedColumn: "",
@@ -74,7 +76,6 @@ export default {
     };
   },
   async created() {
-    // Get user data if logged in
     const token = localStorage.getItem('token');
     if (token) {
       try {
@@ -91,30 +92,30 @@ export default {
   methods: {
     async fetchTableData() {
       if (!this.selectedTable) return;
-
       let url = `/data/${this.selectedTable}`;
       if (this.selectedCountry) {
         url += `?country=${encodeURIComponent(this.selectedCountry)}`;
       }
-
       try {
         const response = await axios.get(url, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
+        if (!response.data.length) {
+          alert("No data found for the selected country or table.");
+        }
         this.data = response.data;
       } catch (error) {
         console.error("Error fetching data:", error);
+        alert("An error occurred while fetching data.");
         this.data = [];
       }
     },
     async fetchChart() {
       if (!this.selectedTable || !this.selectedColumn) return;
-
       let url = `/plot/${this.selectedTable}/${this.selectedColumn}`;
       if (this.selectedCountry) {
         url += `?country=${encodeURIComponent(this.selectedCountry)}`;
       }
-
       try {
         const response = await axios.get(url, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },

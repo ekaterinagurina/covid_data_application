@@ -4,106 +4,75 @@ from datetime import datetime, timezone
 
 Base = declarative_base()
 
-class CountryWiseLatest(Base):
-    __tablename__ = 'country_wise_latest'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    country_region = Column(String, nullable=False)
-    confirmed = Column(Integer)
-    deaths = Column(Integer)
-    recovered = Column(Integer)
-    active = Column(Integer)
-    new_cases = Column(Integer)
-    new_deaths = Column(Integer)
-    new_recovered = Column(Integer)
-    deaths_per_100_cases = Column(Float)
-    recovered_per_100_cases = Column(Float)
-    deaths_per_100_recovered = Column(Float)
-    confirmed_last_week = Column(Integer)
-    one_week_change = Column(Integer)
-    one_week_percent_increase = Column(Float)
-    who_region = Column(String)
 
-class WorldometerData(Base):
-    __tablename__ = 'worldometer_data'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    country_region = Column(String, nullable=False)
-    continent = Column(String)
+class WorldPopulation(Base):
+    __tablename__ = "world_population"
+    id = Column(Integer, primary_key=True)
+    country_name = Column(String)
+    country_code = Column(String)
+    indicator_name = Column(String)
+    indicator_code = Column(String)
+    year = Column(Integer)
     population = Column(Float)
-    totalcases = Column(Integer)
-    newcases = Column(Float)
-    totaldeaths = Column(Float)
-    newdeaths = Column(Float)
-    totalrecovered = Column(Float)
-    newrecovered = Column(Float)
-    activecases = Column(Float)
-    serious_critical = Column(Float)
-    tot_cases_per_1m_pop = Column(Float)
-    deaths_per_1m_pop = Column(Float)
-    totaltests = Column(Float)
-    tests_per_1m_pop = Column(Float)
-    who_region = Column(String)
 
-class Covid19CleanComplete(Base):
-    __tablename__ = 'covid_19_clean_complete'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    province_state = Column(String)
-    country_region = Column(String, nullable=False)
-    lat = Column(Float)
-    long = Column(Float)
+
+class Covid19Vaccine(Base):
+    __tablename__ = "covid19_vaccine"
+    id = Column(Integer, primary_key=True)
     date = Column(Date)
-    confirmed = Column(Integer)
-    deaths = Column(Integer)
-    recovered = Column(Integer)
-    active = Column(Integer)
-    who_region = Column(String)
-
-class FullGrouped(Base):
-    __tablename__ = 'full_grouped'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(Date)
-    country_region = Column(String, nullable=False)
-    confirmed = Column(Integer)
-    deaths = Column(Integer)
-    recovered = Column(Integer)
-    active = Column(Integer)
-    new_cases = Column(Integer)
-    new_deaths = Column(Integer)
-    new_recovered = Column(Integer)
-    who_region = Column(String)
-
-class DayWise(Base):
-    __tablename__ = 'day_wise'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(Date)
-    confirmed = Column(Integer)
-    deaths = Column(Integer)
-    recovered = Column(Integer)
-    active = Column(Integer)
-    new_cases = Column(Integer)
-    new_deaths = Column(Integer)
-    new_recovered = Column(Integer)
-    deaths_per_100_cases = Column(Float)
-    recovered_per_100_cases = Column(Float)
-    deaths_per_100_recovered = Column(Float)
-    no_of_countries = Column(Integer)
-
-class USACountyWise(Base):
-    __tablename__ = 'usa_county_wise'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uid = Column(Integer)
+    country_region = Column(String)
+    continent_name = Column(String)
+    continent_code = Column(String)
+    combined_key = Column(String)
+    doses_admin = Column(Float)
+    people_at_least_one_dose = Column(Float)
+    population = Column(Float)
+    uid = Column(Float)
     iso2 = Column(String)
     iso3 = Column(String)
-    code3 = Column(Integer)
+    code3 = Column(Float)
     fips = Column(Float)
-    admin2 = Column(String)
-    province_state = Column(String)
-    country_region = Column(String, nullable=False)
     lat = Column(Float)
     long = Column(Float)
-    combined_key = Column(String)
+
+
+class CoronavirusBaseMixin:
+    id = Column(Integer, primary_key=True)
     date = Column(Date)
-    confirmed = Column(Integer)
-    deaths = Column(Integer)
+    province = Column(String)
+    country = Column(String)
+    lat = Column(Float)
+    long = Column(Float)
+    type = Column(String)
+    cases = Column(Integer)
+    uid = Column(Float)
+    iso2 = Column(String)
+    iso3 = Column(String)
+    code3 = Column(Float)
+    combined_key = Column(String)
+    population = Column(Float)
+    continent_name = Column(String)
+    continent_code = Column(String)
+
+
+class CoronavirusDaily(Base, CoronavirusBaseMixin):
+    __tablename__ = "coronavirus_daily"
+
+
+class Coronavirus2020(Base, CoronavirusBaseMixin):
+    __tablename__ = "coronavirus_2020"
+
+
+class Coronavirus2021(Base, CoronavirusBaseMixin):
+    __tablename__ = "coronavirus_2021"
+
+
+class Coronavirus2022(Base, CoronavirusBaseMixin):
+    __tablename__ = "coronavirus_2022"
+
+
+class Coronavirus2023(Base, CoronavirusBaseMixin):
+    __tablename__ = "coronavirus_2023"
 
 class User(Base):
     __tablename__ = 'users'
