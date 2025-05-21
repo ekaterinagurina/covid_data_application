@@ -3,12 +3,14 @@ import json
 
 from typing import Optional
 
+import asyncio
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from nats.aio.client import Client as NATS
 
 from auth import auth_router
 from cache import cache_get, cache_set, get_cache_key
@@ -19,6 +21,16 @@ from settings import settings
 from utils import clean_data, CustomJSONEncoder
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_nats():
+    nc = NATS()
+    await nc.connect(settings.NATS_URL)
+    app.state.nats = nc
+
+@app.on_event("shutdown")
+async def shutdown_nats():
+    await app.state.nats.drain()
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +49,7 @@ ALLOWED_TABLES = [
     "coronavirus_daily", "covid19_vaccine", "world_population"
 ]
 
-PLOT_COLUMNS = ["cases", "doses_admin", "people_at_least_one_dose", "population"]
+PLOT_COLUMNS = "cases"
 
 
 def build_query(table_name: str, column_name: Optional[str] = None, country: Optional[str] = None):
@@ -156,3 +168,17 @@ def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(
     plot_image = generate_plot(dates, values, column_name)
     cache_set(cache_key, plot_image)
     return Response(content=plot_image, media_type="image/png")
+
+@app.get("/stats/cfr")
+async def get_cfr(country: Optional[str] = Query(None, description="Country name")):
+    nc: NATS = app.state.nats
+    payload = {"country": country}
+    try:
+        msg = await nc.request(
+            "stats.calculate.cfr",
+            json.dumps(payload).encode(),
+            timeout=5
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Statistics service timeout")
+    return json.loads(msg.data.decode())

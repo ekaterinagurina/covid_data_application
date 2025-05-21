@@ -1,4 +1,31 @@
 services:
+  nats:
+    image: nats:latest
+    container_name: nats
+    ports:
+      - "4222:4222"
+    networks:
+      - covid_network
+
+  stats:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: stats_service
+    command: ["python", "/app/stats_service.py"]
+    depends_on:
+      - nats
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: covid_database
+      DB_USER: postgres
+      DB_PASSWORD: password
+      NATS_URL: nats://nats:4222
+    networks:
+      - covid_network
+
   db:
     image: postgres:13
     environment:
@@ -24,6 +51,7 @@ services:
       dockerfile: backend/Dockerfile
     depends_on:
       - db
+      - nats
     restart: always
     environment:
       DB_HOST: db

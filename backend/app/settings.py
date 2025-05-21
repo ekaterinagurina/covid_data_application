@@ -36,6 +36,7 @@ class RedisSettings(ConfiguredBaseSettings):
 class Settings(ConfiguredBaseSettings):
     SECRET_KEY: str = Field(..., description="JWT Secret Key")
     ALLOW_ORIGINS: List[str] = Field(..., description="List of allowed origins for CORS")
+    NATS_URL: str = Field(..., description="NATS server URL")
 
 
 settings = Settings()
