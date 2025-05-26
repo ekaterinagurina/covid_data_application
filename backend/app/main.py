@@ -3,7 +3,6 @@ import json
 
 from typing import Optional
 
-import asyncio
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,6 +10,8 @@ from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from nats.aio.client import Client as NATS
+from nats.errors import TimeoutError, NoRespondersError
+
 
 from auth import auth_router
 from cache import cache_get, cache_set, get_cache_key
@@ -25,12 +26,34 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup_nats():
     nc = NATS()
-    await nc.connect(settings.NATS_URL)
-    app.state.nats = nc
+    try:
+        await nc.connect(settings.NATS_URL)
+        app.state.nats = nc
+        logger.info(f"Connected to NATS at {settings.NATS_URL}")
+    except Exception as e:
+        logger.error(f"Unable to connect to NATS: {e}")
+        raise
+
+    async def on_stats_event(msg):
+        try:
+            payload = json.loads(msg.data.decode())
+        except Exception as e:
+            logger.error(f"Invalid stats event payload: {e}")
+            return
+        logger.info(f"Received broadcast on {msg.subject}: {payload}")
+
+    await nc.subscribe("stats.events.*", cb=on_stats_event)
+    logger.info("Subscribed to stats.events.*")
+
 
 @app.on_event("shutdown")
 async def shutdown_nats():
-    await app.state.nats.drain()
+    nc: NATS = app.state.nats
+    try:
+        await nc.drain()
+        logger.info("NATS connection drained")
+    except Exception as e:
+        logger.error(f"Error shutting down NATS: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -173,12 +196,45 @@ def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(
 async def get_cfr(country: Optional[str] = Query(None, description="Country name")):
     nc: NATS = app.state.nats
     payload = {"country": country}
+
     try:
         msg = await nc.request(
             "stats.calculate.cfr",
             json.dumps(payload).encode(),
             timeout=5
         )
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Statistics service timeout")
-    return json.loads(msg.data.decode())
+    except TimeoutError:
+        logger.error(f"CFR request timed out for country={country}")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Statistics service timeout"
+        )
+    except NoRespondersError:
+        logger.error("No stats service responders available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Statistics service unavailable"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected NATS error on CFR request: {e}")
+        ErrorCode.SERVER_ERROR.raise_exception()
+
+    try:
+        data = json.loads(msg.data.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to decode CFR response: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invalid response from statistics service"
+        )
+
+    if isinstance(data, dict) and data.get("error_code"):
+        code = data["error_code"]
+        message = data.get("error_message", "")
+        logger.error(f"Stats service error: {code} – {message}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": code, "error_message": message}
+        )
+
+    return data
