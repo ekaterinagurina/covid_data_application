@@ -10,7 +10,7 @@ services:
   stats:
     build:
       context: .
-      dockerfile: backend/app/Dockerfile.stats
+      dockerfile: backend/app/stats/Dockerfile.stats
     depends_on:
       - db
       - nats

@@ -7,9 +7,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import exists
 
-from db_connect import SessionLocal
-from models import User
-from settings import settings
+from database.db_connect import SessionLocal
+from database.models import User
+from common.settings import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

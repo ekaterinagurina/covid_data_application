@@ -3,7 +3,7 @@
 ./wait-for-it.sh db:5432 -- echo "Database is up"
 
 echo "Running database setup and data loading..."
-python /app/database.py
+python /app/database/database.py
 
 echo "Database setup and data loading completed successfully."
 

@@ -1,5 +1,5 @@
-from config import redis_client, logger
-from errors import ErrorCode
+from common.config import redis_client, logger
+from common.errors import ErrorCode
 
 
 def get_cache_key(*args: str) -> str:

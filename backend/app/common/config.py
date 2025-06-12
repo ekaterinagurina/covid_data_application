@@ -1,6 +1,6 @@
 import redis
 import logging
-from settings import redis_settings
+from common.settings import redis_settings
 
 redis_client = redis.StrictRedis(
     host=redis_settings.REDIS_HOST,

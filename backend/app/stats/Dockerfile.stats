@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY backend/app/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY backend/app/database/database.py /app/database/database.py
+COPY backend/app/database/db_connect.py /app/database/db_connect.py
+COPY backend/app/database/models.py /app/database/models.py
+COPY backend/app/common/config.py /app/common/config.py
+COPY backend/app/common/errors.py /app/common/errors.py
+COPY backend/app/common/settings.py /app/common/settings.py
+COPY backend/app/stats /app/stats
+
+
+COPY .env /app/.env
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "stats/stats_service.py"]

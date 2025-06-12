@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from models import (
+from database.models import (
     Base, WorldPopulation, Covid19Vaccine, CoronavirusDaily,
     Coronavirus2020, Coronavirus2021, Coronavirus2022, Coronavirus2023
 )
-from settings import database_settings
+from common.settings import database_settings
 import pandas as pd
 
 engine = create_engine(database_settings.uri)

@@ -14,12 +14,12 @@ from nats.errors import TimeoutError, NoRespondersError
 
 
 from auth import auth_router
-from cache import cache_get, cache_set, get_cache_key
-from config import logger
-from db_connect import setup_database, query_db
-from errors import ErrorCode
-from settings import settings
-from utils import clean_data, CustomJSONEncoder
+from common.cache import cache_get, cache_set, get_cache_key
+from common.config import logger
+from database.db_connect import setup_database, query_db
+from common.errors import ErrorCode
+from common.settings import settings
+from common.utils import clean_data, CustomJSONEncoder
 
 app = FastAPI()
 

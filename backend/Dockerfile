@@ -2,11 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+COPY backend/app/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
 COPY backend/app /app
 COPY .env /app/.env
 
-RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONPATH=/app
 
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/scripts/entrypoint.sh
 
-CMD ["sh", "/app/entrypoint.sh"]
+CMD ["sh", "/app/scripts/entrypoint.sh"]

@@ -4,7 +4,7 @@ from numpy import isinf
 from pandas import isna
 import json
 from datetime import datetime, date
-from config import logger
+from common.config import logger
 
 
 def track_time(func):

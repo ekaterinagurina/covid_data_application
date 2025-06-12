@@ -4,10 +4,10 @@ import json
 from nats.aio.client import Client as NATS
 from psycopg2 import DatabaseError
 
-from db_connect import query_db
-from config import logger
-from errors import ErrorCode
-from settings import settings
+from database.db_connect import query_db
+from common.config import logger
+from common.errors import ErrorCode
+from common.settings import settings
 
 
 async def run():
