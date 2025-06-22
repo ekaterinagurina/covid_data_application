@@ -6,7 +6,7 @@ from common.config import logger
 from common.errors import ErrorCode
 from common.settings import database_settings
 from database.models import Base
-from database.database import load_data
+from database.setup_db import load_data
 
 
 engine = create_engine(database_settings.uri)
