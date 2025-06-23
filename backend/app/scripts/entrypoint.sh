@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./wait-for-it.sh db:5432 -- echo "Database is up"
+/app/scripts/wait-for-it.sh db:5432 --timeout=90 --strict -- echo "Database is up"
 
 echo "Running database setup and data loading..."
 python /app/database/setup_db.py

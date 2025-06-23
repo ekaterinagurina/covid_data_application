@@ -13,6 +13,9 @@ class ErrorCode(Enum):
     UNAUTHORIZED = (401, "Invalid credentials")
     FORBIDDEN = (403, "Access forbidden")
     SERVER_ERROR = (500, "Internal server error")
+    BAD_GATEWAY = (502, "Invalid response from upstream service")
+    SERVICE_UNAVAILABLE = (503, "Service temporarily unavailable")
+    TIMEOUT = (504, "Request timed out")
     REDIS_ERROR = (1003, "Redis connection error")
 
     def __init__(self, code: int, message: str):

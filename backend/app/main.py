@@ -1,14 +1,15 @@
 import io
 import json
 
-from typing import Optional
+from typing import List, Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Response, status
+import plotly.graph_objs as go
+from fastapi import FastAPI, HTTPException, Query, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from nats.aio.client import Client as NATS
 from nats.errors import TimeoutError, NoRespondersError
 
@@ -16,10 +17,10 @@ from nats.errors import TimeoutError, NoRespondersError
 from auth import auth_router
 from common.cache import cache_get, cache_set, get_cache_key
 from common.config import logger
-from database.db_connect import setup_database, query_db
 from common.errors import ErrorCode
 from common.settings import settings
 from common.utils import clean_data, CustomJSONEncoder
+from database.db_connect import setup_database, query_db
 
 app = FastAPI()
 
@@ -72,7 +73,10 @@ ALLOWED_TABLES = [
     "coronavirus_daily", "covid19_vaccine", "world_population"
 ]
 
-PLOT_COLUMNS = "cases"
+PLOT_COLUMNS = [
+    "cases",
+    "people_at_least_one_dose",
+]
 
 
 def build_query(table_name: str, column_name: Optional[str] = None, country: Optional[str] = None):
@@ -169,6 +173,76 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
     query, params = build_query(table_name, country=country)
     return JSONResponse(content=fetch_and_cache_data(cache_key, query, params))
 
+@app.get("/data/coronavirus_by_type/{year}")
+def get_cases_by_type(year: str, country: Optional[str] = Query(None)):
+    table_name = f"coronavirus_{year}"
+    if table_name not in ALLOWED_TABLES:
+        ErrorCode.INVALID_INPUT.raise_exception()
+
+    query = f"""
+        SELECT date, type, SUM(cases) AS cases
+        FROM public.{table_name}
+        {"WHERE country ILIKE %s" if country else ""}
+        GROUP BY date, type
+        ORDER BY date;
+    """
+    params = (country,) if country else None
+    cache_key = get_cache_key("cases_by_type", table_name, country or "all")
+
+    return fetch_and_cache_data(cache_key, query, params)
+
+@app.get("/plotly/compare_types/{year}", response_class=HTMLResponse)
+def plotly_compare_types(
+    year: str,
+    country: Optional[str] = Query(None),
+    type: Optional[List[str]] = Query(["confirmed", "death", "recovery"])
+):
+    table_name = f"coronavirus_{year}"
+    if table_name not in ALLOWED_TABLES:
+        ErrorCode.INVALID_INPUT.raise_exception()
+
+    where_clauses = []
+    params = []
+
+    if country:
+        where_clauses.append("country ILIKE %s")
+        params.append(country)
+    if type:
+        where_clauses.append("type IN %s")
+        params.append(tuple(type))
+
+    where_sql = " AND ".join(where_clauses)
+    if where_sql:
+        where_sql = "WHERE " + where_sql
+
+    query = f"""
+        SELECT date, type, SUM(cases) AS cases
+        FROM public.{table_name}
+        {where_sql}
+        GROUP BY date, type
+        ORDER BY date;
+    """
+    data = fetch_and_cache_data(get_cache_key("plotly", table_name, country or "all", "_".join(sorted(type))), query, tuple(params))
+    df = pd.DataFrame(data)
+    if df.empty:
+        raise HTTPException(status_code=404, detail="No data")
+
+    df["date"] = pd.to_datetime(df["date"])
+    fig = go.Figure()
+
+    for t in df["type"].unique():
+        subset = df[df["type"] == t]
+        fig.add_trace(go.Scatter(
+            x=subset["date"],
+            y=subset["cases"],
+            mode="lines+markers",
+            name=t
+        ))
+
+    title = f"COVID-19 Cases in {year}" + (f" ({country})" if country else "")
+    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Cases", hovermode="x unified")
+
+    return fig.to_html(full_html=True)
 
 @app.get("/plot/{table_name}/{column_name}")
 def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(None, description="Filter by country")):
@@ -201,14 +275,11 @@ async def get_cfr(country: Optional[str] = Query(None, description="Country name
         msg = await nc.request(
             "stats.calculate.cfr",
             json.dumps(payload).encode(),
-            timeout=5
+            timeout=30
         )
     except TimeoutError:
         logger.error(f"CFR request timed out for country={country}")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Statistics service timeout"
-        )
+        ErrorCode.TIMEOUT.raise_exception()
     except NoRespondersError:
         logger.error("No stats service responders available")
         raise HTTPException(
@@ -223,10 +294,7 @@ async def get_cfr(country: Optional[str] = Query(None, description="Country name
         data = json.loads(msg.data.decode())
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(f"Failed to decode CFR response: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Invalid response from statistics service"
-        )
+        ErrorCode.BAD_GATEWAY.raise_exception()
 
     if isinstance(data, dict) and data.get("error_code"):
         code = data["error_code"]

@@ -51,6 +51,7 @@ services:
       - db
       - redis
       - nats
+    entrypoint: [ "sh", "/app/scripts/entrypoint.sh" ]
     restart: always
     environment:
       NATS_URL: nats://nats:4222

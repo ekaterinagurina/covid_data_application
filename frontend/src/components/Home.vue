@@ -18,36 +18,29 @@
       <button @click="logout">Logout</button>
 
       <h2>COVID Data</h2>
-      <select v-model="selectedTable" @change="fetchTableData">
-        <option disabled value="">Select a table</option>
-        <option v-for="table in tables" :key="table" :value="table">
-          {{ table }}
-        </option>
-      </select>
 
-      <input
-        type="text"
-        v-model="selectedCountry"
-        placeholder="Enter country name"
-      />
-      <button @click="fetchTableData">Fetch Data</button>
+      <div>
+        <select v-model="selectedTable">
+          <option disabled value="">Select a table</option>
+          <option v-for="table in tables" :key="table" :value="table">
+            {{ table }}
+          </option>
+        </select>
 
-      <select v-model="selectedColumn" :disabled="!selectedTable">
-        <option disabled value="">Select a column to plot</option>
-        <option
-          v-for="column in plotColumns"
-          :key="column"
-          :value="column"
-        >
-          {{ column }}
-        </option>
-      </select>
-      <button
-        @click="fetchChart"
-        :disabled="!selectedTable || !selectedColumn"
-      >
-        Plot Chart
-      </button>
+        <select v-model="selectedColumn">
+          <option disabled value="">Select a column</option>
+          <option v-for="column in plotColumns" :key="column" :value="column">
+            {{ column }}
+          </option>
+        </select>
+
+        <input type="text" v-model="selectedCountry" placeholder="Enter country" />
+
+        <button @click="fetchTableData">Load Data</button>
+        <button @click="fetchChart" :disabled="!selectedTable || !selectedColumn">
+          Plot Chart
+        </button>
+      </div>
 
       <div v-if="chartUrl">
         <h3>Chart for {{ selectedColumn }}</h3>
@@ -94,6 +87,18 @@
           Total deaths: {{ cfrResult.total_deaths }}
         </p>
       </div>
+
+      <h2>Cases by Year and Type</h2>
+      <div>
+        <input v-model="compareYear" placeholder="Year (e.g. 2021)" />
+        <input v-model="compareCountry" placeholder="Country (optional)" />
+      </div>
+      <div>
+        <label><input type="checkbox" value="confirmed" v-model="selectedTypes" /> Confirmed</label>
+        <label><input type="checkbox" value="death" v-model="selectedTypes" /> Deaths</label>
+        <label><input type="checkbox" value="recovery" v-model="selectedTypes" /> Recovered</label>
+      </div>
+      <button @click="openCompareChart">Open Chart</button>
     </div>
   </div>
 </template>
@@ -114,14 +119,17 @@ export default {
         "covid19_vaccine",
         "world_population",
       ],
-      plotColumns: ["cases"],
+      plotColumns: ["cases", "people_at_least_one_dose"],
       selectedTable: "",
+      selectedColumn: "cases",
       selectedCountry: "",
-      selectedColumn: "",
       data: [],
       chartUrl: null,
       statCountry: "",
       cfrResult: null,
+      compareYear: "",
+      compareCountry: "",
+      selectedTypes: ["confirmed", "death", "recovery"]
     };
   },
   async created() {
@@ -174,8 +182,7 @@ export default {
           },
           responseType: "blob",
         });
-        const urlCreator = window.URL || window.webkitURL;
-        this.chartUrl = urlCreator.createObjectURL(response.data);
+        this.chartUrl = URL.createObjectURL(response.data);
       } catch (error) {
         console.error("Error fetching chart:", error);
         this.chartUrl = null;
@@ -198,6 +205,19 @@ export default {
         alert("Could not fetch Case Fatality Rate.");
         this.cfrResult = null;
       }
+    },
+    openCompareChart() {
+      if (!this.compareYear || !this.selectedTypes.length) {
+        alert("Please select year and case types.");
+        return;
+      }
+
+      const params = new URLSearchParams();
+      if (this.compareCountry) params.append("country", this.compareCountry);
+      this.selectedTypes.forEach(t => params.append("type", t));
+
+      const url = `${window.location.origin.replace(":8080", ":8000")}/plotly/compare_types/${this.compareYear}?` + params.toString();
+      window.open(url, "_blank");
     },
     logout() {
       localStorage.removeItem("token");
@@ -223,5 +243,8 @@ img {
   max-width: 100%;
   height: auto;
   margin-top: 20px;
+}
+h2 {
+  margin-top: 30px;
 }
 </style>
