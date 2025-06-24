@@ -12,17 +12,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from nats.aio.client import Client as NATS
 from nats.errors import TimeoutError, NoRespondersError
-
+from prometheus_client import make_asgi_app
 
 from auth import auth_router
 from common.cache import cache_get, cache_set, get_cache_key
 from common.config import logger
 from common.errors import ErrorCode
+from common.monitoring import monitor
 from common.settings import settings
 from common.utils import clean_data, CustomJSONEncoder
 from database.db_connect import setup_database, query_db
 
 app = FastAPI()
+
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 @app.on_event("startup")
 async def startup_nats():
@@ -78,7 +82,7 @@ PLOT_COLUMNS = [
     "people_at_least_one_dose",
 ]
 
-
+@monitor
 def build_query(table_name: str, column_name: Optional[str] = None, country: Optional[str] = None):
     is_corona_table = table_name.startswith("coronavirus_")
 
@@ -116,7 +120,7 @@ def build_query(table_name: str, column_name: Optional[str] = None, country: Opt
 
     return query, params
 
-
+@monitor
 def fetch_and_cache_data(cache_key: str, query: str, params: Optional[tuple]):
     cached_data = cache_get(cache_key)
     if cached_data:
@@ -132,7 +136,7 @@ def fetch_and_cache_data(cache_key: str, query: str, params: Optional[tuple]):
     cache_set(cache_key, json.dumps(cleaned_data, cls=CustomJSONEncoder))
     return cleaned_data
 
-
+@monitor
 def generate_plot(dates, values, column_name):
     parsed_dates = []
     for d in dates:
@@ -165,6 +169,7 @@ def generate_plot(dates, values, column_name):
 
 
 @app.get("/data/{table_name}")
+@monitor
 def read_table_data(table_name: str, country: Optional[str] = Query(None, description="Filter by country")):
     if table_name not in ALLOWED_TABLES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid table name")
@@ -174,6 +179,7 @@ def read_table_data(table_name: str, country: Optional[str] = Query(None, descri
     return JSONResponse(content=fetch_and_cache_data(cache_key, query, params))
 
 @app.get("/data/coronavirus_by_type/{year}")
+@monitor
 def get_cases_by_type(year: str, country: Optional[str] = Query(None)):
     table_name = f"coronavirus_{year}"
     if table_name not in ALLOWED_TABLES:
@@ -192,6 +198,7 @@ def get_cases_by_type(year: str, country: Optional[str] = Query(None)):
     return fetch_and_cache_data(cache_key, query, params)
 
 @app.get("/plotly/compare_types/{year}", response_class=HTMLResponse)
+@monitor
 def plotly_compare_types(
     year: str,
     country: Optional[str] = Query(None),
@@ -245,6 +252,7 @@ def plotly_compare_types(
     return fig.to_html(full_html=True)
 
 @app.get("/plot/{table_name}/{column_name}")
+@monitor
 def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(None, description="Filter by country")):
     if table_name not in ALLOWED_TABLES or column_name not in PLOT_COLUMNS:
         ErrorCode.INVALID_INPUT.raise_exception()
@@ -267,6 +275,7 @@ def plot_data(table_name: str, column_name: str, country: Optional[str] = Query(
     return Response(content=plot_image, media_type="image/png")
 
 @app.get("/stats/cfr")
+@monitor
 async def get_cfr(country: Optional[str] = Query(None, description="Country name")):
     nc: NATS = app.state.nats
     payload = {"country": country}
@@ -275,7 +284,7 @@ async def get_cfr(country: Optional[str] = Query(None, description="Country name
         msg = await nc.request(
             "stats.calculate.cfr",
             json.dumps(payload).encode(),
-            timeout=30
+            timeout=60
         )
     except TimeoutError:
         logger.error(f"CFR request timed out for country={country}")

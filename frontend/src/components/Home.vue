@@ -99,6 +99,16 @@
         <label><input type="checkbox" value="recovery" v-model="selectedTypes" /> Recovered</label>
       </div>
       <button @click="openCompareChart">Open Chart</button>
+
+      <h2>Interactive GeoMap</h2>
+      <div style="margin-top: 20px;">
+        <iframe
+            src="http://localhost:3000/d-solo/c6fc91ae-2486-484a-92a6-bd10c2bf13c3/new-dashboard?orgId=1&timezone=browser&tab=transformations&panelId=1&__feature.dashboardSceneSolo"
+            width="1200"
+            height="800"
+            frameborder="0">
+        </iframe>
+      </div>
     </div>
   </div>
 </template>
